@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LocalAI Chat</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #0f0f0f;
+            --surface: #1a1a1a;
+            --surface2: #242424;
+            --border: #333;
+            --text: #e0e0e0;
+            --text2: #888;
+            --accent: #6c63ff;
+            --accent2: #5a52d5;
+            --user: #2d2d2d;
+            --bot: #1e1e1e;
+            --success: #4caf50;
+            --error: #f44336;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-shrink: 0;
+        }
+
+        header h1 {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--text2);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--error);
+        }
+
+        .status-dot.connected { background: var(--success); }
+
+        .settings-btn {
+            margin-left: auto;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .settings-btn:hover { background: var(--border); }
+
+        .main {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 280px;
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            overflow-y: auto;
+        }
+
+        .sidebar.hidden { display: none; }
+
+        .sidebar h3 {
+            font-size: 12px;
+            text-transform: uppercase;
+            color: var(--text2);
+            letter-spacing: 0.5px;
+        }
+
+        .sidebar label {
+            font-size: 13px;
+            color: var(--text2);
+            margin-bottom: 4px;
+            display: block;
+        }
+
+        .sidebar select, .sidebar input {
+            width: 100%;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 13px;
+            outline: none;
+        }
+
+        .sidebar select:focus, .sidebar input:focus {
+            border-color: var(--accent);
+        }
+
+        .sidebar .field { margin-bottom: 12px; }
+
+        .range-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .range-row input[type="range"] {
+            flex: 1;
+            accent-color: var(--accent);
+        }
+
+        .range-val {
+            font-size: 12px;
+            color: var(--text2);
+            min-width: 32px;
+            text-align: right;
+        }
+
+        .chat-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .msg {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 14px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .msg.user {
+            align-self: flex-end;
+            background: var(--accent);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .msg.bot {
+            align-self: flex-start;
+            background: var(--bot);
+            border: 1px solid var(--border);
+            border-bottom-left-radius: 4px;
+        }
+
+        .msg.system {
+            align-self: center;
+            background: transparent;
+            color: var(--text2);
+            font-size: 12px;
+            padding: 4px 12px;
+        }
+
+        .msg.error {
+            align-self: center;
+            background: rgba(244, 67, 54, 0.1);
+            color: var(--error);
+            border: 1px solid rgba(244, 67, 54, 0.3);
+        }
+
+        .input-area {
+            padding: 16px 20px;
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+        }
+
+        .input-row {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }
+
+        .input-row textarea {
+            flex: 1;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 10px 14px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-family: inherit;
+            resize: none;
+            outline: none;
+            max-height: 150px;
+            min-height: 44px;
+        }
+
+        .input-row textarea:focus { border-color: var(--accent); }
+
+        .send-btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .send-btn:hover { background: var(--accent2); }
+        .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .clear-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text2);
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-top: 8px;
+        }
+
+        .clear-btn:hover { border-color: var(--error); color: var(--error); }
+
+        .typing {
+            display: inline-flex;
+            gap: 4px;
+            padding: 4px 0;
+        }
+
+        .typing span {
+            width: 6px;
+            height: 6px;
+            background: var(--text2);
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out;
+        }
+
+        .typing span:nth-child(1) { animation-delay: -0.32s; }
+        .typing span:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+
+        .empty-state {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text2);
+            font-size: 14px;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .empty-state .icon { font-size: 48px; opacity: 0.3; }
+
+        @media (max-width: 768px) {
+            .sidebar { position: absolute; z-index: 10; height: 100%; }
+            .sidebar.hidden { display: none; }
+            .msg { max-width: 90%; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>LocalAI Chat</h1>
+        <div class="status">
+            <div class="status-dot" id="statusDot"></div>
+            <span id="statusText">Checking...</span>
+        </div>
+        <button class="settings-btn" onclick="toggleSidebar()">Settings</button>
+    </header>
+
+    <div class="main">
+        <div class="sidebar" id="sidebar">
+            <div class="field">
+                <label>Model</label>
+                <select id="model">
+                    <option value="">Loading...</option>
+                </select>
+            </div>
+            <div class="field">
+                <label>System Prompt</label>
+                <textarea id="systemPrompt" rows="3" placeholder="You are a helpful assistant...">You are a helpful assistant.</textarea>
+            </div>
+            <h3>Parameters</h3>
+            <div class="field">
+                <label>Temperature</label>
+                <div class="range-row">
+                    <input type="range" id="temperature" min="0" max="2" step="0.1" value="0.7">
+                    <span class="range-val" id="tempVal">0.7</span>
+                </div>
+            </div>
+            <div class="field">
+                <label>Max Tokens</label>
+                <div class="range-row">
+                    <input type="range" id="maxTokens" min="64" max="8192" step="64" value="2048">
+                    <span class="range-val" id="tokensVal">2048</span>
+                </div>
+            </div>
+            <div class="field">
+                <label>Stream Responses</label>
+                <select id="streamMode">
+                    <option value="true">Enabled</option>
+                    <option value="false">Disabled</option>
+                </select>
+            </div>
+            <button class="clear-btn" onclick="clearChat()">Clear Chat</button>
+        </div>
+
+        <div class="chat-area">
+            <div class="messages" id="messages">
+                <div class="empty-state" id="emptyState">
+                    <div class="icon">💬</div>
+                    <div>Start a conversation</div>
+                </div>
+            </div>
+            <div class="input-area">
+                <div class="input-row">
+                    <textarea id="userInput" placeholder="Type a message..." rows="1" 
+                              onkeydown="handleKey(event)"></textarea>
+                    <button class="send-btn" id="sendBtn" onclick="sendMessage()">↑</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const messagesEl = document.getElementById('messages');
+        const userInput = document.getElementById('userInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const modelSelect = document.getElementById('model');
+        const emptyState = document.getElementById('emptyState');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+
+        let chatHistory = [];
+        let isGenerating = false;
+
+        // Auto-resize textarea
+        userInput.addEventListener('input', () => {
+            userInput.style.height = 'auto';
+            userInput.style.height = Math.min(userInput.scrollHeight, 150) + 'px';
+        });
+
+        document.getElementById('temperature').addEventListener('input', (e) => {
+            document.getElementById('tempVal').textContent = e.target.value;
+        });
+
+        document.getElementById('maxTokens').addEventListener('input', (e) => {
+            document.getElementById('tokensVal').textContent = e.target.value;
+        });
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('hidden');
+        }
+
+        function handleKey(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        }
+
+        function addMessage(role, content) {
+            emptyState.style.display = 'none';
+            const div = document.createElement('div');
+            div.className = `msg ${role}`;
+            div.textContent = content;
+            messagesEl.appendChild(div);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+            return div;
+        }
+
+        function clearChat() {
+            chatHistory = [];
+            messagesEl.innerHTML = '';
+            messagesEl.appendChild(emptyState);
+            emptyState.style.display = 'flex';
+        }
+
+        async function checkHealth() {
+            try {
+                const resp = await fetch('/api/health');
+                if (resp.ok) {
+                    statusDot.classList.add('connected');
+                    statusText.textContent = 'Connected';
+                } else {
+                    statusDot.classList.remove('connected');
+                    statusText.textContent = 'Error';
+                }
+            } catch {
+                statusDot.classList.remove('connected');
+                statusText.textContent = 'Offline';
+            }
+        }
+
+        async function loadModels() {
+            try {
+                const resp = await fetch('/api/models');
+                const data = await resp.json();
+                const models = data.data || [];
+                modelSelect.innerHTML = models.length
+                    ? models.map(m => `<option value="${m.id}">${m.id}</option>`).join('')
+                    : '<option value="">No models found</option>';
+            } catch {
+                modelSelect.innerHTML = '<option value="">Failed to load</option>';
+            }
+        }
+
+        async function sendMessage() {
+            const text = userInput.value.trim();
+            if (!text || isGenerating) return;
+
+            userInput.value = '';
+            userInput.style.height = 'auto';
+
+            addMessage('user', text);
+            chatHistory.push({ role: 'user', content: text });
+
+            const model = modelSelect.value;
+            if (!model) {
+                addMessage('error', 'No model selected. Load models in Settings.');
+                return;
+            }
+
+            const stream = document.getElementById('streamMode').value === 'true';
+            const systemPrompt = document.getElementById('systemPrompt').value.trim();
+            const messages = [];
+            if (systemPrompt) {
+                messages.push({ role: 'system', content: systemPrompt });
+            }
+            messages.push(...chatHistory);
+
+            isGenerating = true;
+            sendBtn.disabled = true;
+
+            if (stream) {
+                await streamChat(model, messages);
+            } else {
+                await normalChat(model, messages);
+            }
+
+            isGenerating = false;
+            sendBtn.disabled = false;
+            userInput.focus();
+        }
+
+        async function normalChat(model, messages) {
+            try {
+                const resp = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        model,
+                        messages,
+                        temperature: parseFloat(document.getElementById('temperature').value),
+                        max_tokens: parseInt(document.getElementById('maxTokens').value),
+                        stream: false,
+                    }),
+                });
+                const data = await resp.json();
+                if (data.error) {
+                    addMessage('error', data.error);
+                } else {
+                    const content = data.choices?.[0]?.message?.content || 'No response';
+                    addMessage('bot', content);
+                    chatHistory.push({ role: 'assistant', content });
+                }
+            } catch (e) {
+                addMessage('error', 'Failed: ' + e.message);
+            }
+        }
+
+        async function streamChat(model, messages) {
+            const botMsg = addMessage('bot', '');
+            let fullText = '';
+
+            try {
+                const resp = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        model,
+                        messages,
+                        temperature: parseFloat(document.getElementById('temperature').value),
+                        max_tokens: parseInt(document.getElementById('maxTokens').value),
+                        stream: true,
+                    }),
+                });
+
+                const reader = resp.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop();
+
+                    for (const line of lines) {
+                        if (!line.startsWith('data: ')) continue;
+                        const data = line.slice(6).trim();
+                        if (data === '[DONE]') break;
+
+                        try {
+                            const chunk = JSON.parse(data);
+                            const delta = chunk.choices?.[0]?.delta?.content;
+                            if (delta) {
+                                fullText += delta;
+                                botMsg.textContent = fullText;
+                                messagesEl.scrollTop = messagesEl.scrollHeight;
+                            }
+                        } catch {}
+                    }
+                }
+
+                if (fullText) {
+                    chatHistory.push({ role: 'assistant', content: fullText });
+                }
+            } catch (e) {
+                botMsg.textContent = 'Stream failed: ' + e.message;
+                botMsg.classList.add('error');
+            }
+        }
+
+        // Init
+        checkHealth();
+        loadModels();
+        userInput.focus();
+    </script>
+</body>
+</html>
